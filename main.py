@@ -23,7 +23,8 @@ map_emojis = {
     "1" : "🧱" ,
     "0" : "⬛" ,
     "P" : "🤓" ,
-    "E" : "🥩" 
+    "E" : "🥩" ,
+    "PT" : "🔴"
 }
 
 
@@ -89,19 +90,20 @@ class ControlButtons(discord.ui.View):
 
         self.maze = maze
         self.author = author
+        self.visited = [[False] * len(maze[0]) for _ in range(len(maze))]
 
         self.buttons = [
-           # ROW 1
+           
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction=""),
            ControlButton(emoji="🔼",row=0,direction="U"),
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction=""),
 
-           #ROW2
+           
            ControlButton(emoji="🔼",row=1,direction="L"),
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=1,direction=""),
            ControlButton(emoji="▶",row=1,direction="R"),
 
-           #ROW3
+           
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
            ControlButton(emoji="🔽",row=2,direction="D"),
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
@@ -161,6 +163,76 @@ class ControlButtons(discord.ui.View):
         self.c = new_c
 
         return False
+
+    
+
+    
+
+    def printPath(self , i, j, direction: str = ""):
+        if (
+                i < 0
+                or j < 0
+                or i >= len(self.maze)
+                or j >= len(self.maze[0])
+                or self.visited[i][j]
+                or self.maze[i][j] == "1"
+                ):
+            return []
+
+        if self.maze[i][j] == "E":
+            return direction
+
+        self.visited[i][j] = True
+
+        steps = [
+                (-1, 0, "U"),  
+                (1, 0, "D"),  
+                (0, 1, "R"),  
+                (0, -1, "L"),  
+        ]
+
+        for dx, dy, direction_char in steps:
+            res = self.printPath(i + dx, j + dy, direction + direction_char)
+            if res:
+                return res
+
+        self.visited[i][j] = False
+
+        return None 
+
+    @discord.ui.button(label = "solve" , style = discord.ButtonStyle.red , row = 3)
+    async def _solve(self , interaction : discord.Interaction  , button : discord.ui.Button):
+        for btn in self.children :
+            if not btn.disabled:
+                btn.disabled = True
+
+        path = self.printPath(self.r , self.c) 
+
+        
+        for direction in path:
+            dr, dc = self.steps[direction]
+            new_r = self.r + dr
+            new_c = self.c + dc
+
+ 
+            if self.maze[new_r][new_c] == "E":
+                break 
+
+            
+
+            
+            self.maze[new_r][new_c] = "PT"
+
+            
+            self.r = new_r
+            self.c = new_c
+
+        msg = self.build_msg()
+
+        await interaction.response.defer()
+        await interaction.message.edit(content = f"Solver :\n{msg}",  view = self)
+
+
 
 
 
