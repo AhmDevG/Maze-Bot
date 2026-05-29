@@ -1,5 +1,5 @@
-- A maze bot game
-- commands :
+# A maze bot game
+# Commands :
     - /play [level : Optional[str]]
     - if no level it will take random level from maze file
 
