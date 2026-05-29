@@ -1,7 +1,8 @@
 import discord
 import random
 import os
-from discord import app_commands
+from typing import Optional , Union
+from discord import app_commands , Emoji , PartialEmoji
 import json
 from dotenv import load_dotenv
 from discord.ext import commands
@@ -43,10 +44,40 @@ def get_data() :
 
 data = get_data()
 
+class ControlButton(discord.ui.Button):
+    def __init__(self,style: discord.ButtonStyle = discord.ButtonStyle.blurple , label: Optional[str] = "", disabled: bool = False, emoji: Optional[Union[str, Emoji, PartialEmoji]] = None, row: Optional[int] = None, direction = ""):
+        super().__init__(style=style, label=label, disabled=disabled, row=row , emoji = emoji)
+        self.direction = direction
+
+    async def callback(self , interaction : discord.Interaction ):
+        view = self.view
+        if view.boundary_check(self.direction):
+            await interaction.response.send_message("out of maze" , ephemeral=True)
+            return 
+
+        
+        result = view.handle_movement(self.direction)
+        if result == True:
+            await interaction.message.edit(content = "YOU WON" , view = None)
+            return 
+        
+
+
+        msg = view.build_msg()
+
+
+        await interaction.response.defer()
+        await interaction.message.edit(content = msg , view = view)
+    
+
+
+
+
 
 class ControlButtons(discord.ui.View):
-    def __init__(self , author , maze , level):
+    def __init__(self , author , maze):
         super().__init__()
+
         self.steps = {
            "U" : [-1 , 0],
            "D" : [1 , 0],
@@ -55,15 +86,50 @@ class ControlButtons(discord.ui.View):
         }
         self.r = 1
         self.c = 1
+
         self.maze = maze
         self.author = author
-        self.level = level
+
+        self.buttons = [
+           # ROW 1
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction=""),
+           ControlButton(emoji="🔼",row=0,direction="U"),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction=""),
+
+           #ROW2
+           ControlButton(emoji="🔼",row=1,direction="L"),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=1,direction=""),
+           ControlButton(emoji="▶",row=1,direction="R"),
+
+           #ROW3
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
+           ControlButton(emoji="🔽",row=2,direction="D"),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
+        ]
+
+        for button in self.buttons:
+            self.add_item(button)
+
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user != self.author:
             await interaction.response.send_message("you are not the author", ephemeral=True)
             return False  
         return True  
+
+
+    def build_msg(self):
+        maze_string = ""
+
+        for row in self.maze: 
+            for col in row:
+                maze_string += map_emojis[col]
+            maze_string += '\n'
+
+
+        msg = f'```{maze_string}```'
+
+        return msg
 
 
     def boundary_check(self , direction : str):
@@ -79,7 +145,6 @@ class ControlButtons(discord.ui.View):
 
                 
         return False        
-
 
     def handle_movement(self , direction : str) -> bool:
         dr, dc = self.steps[direction]
@@ -97,144 +162,6 @@ class ControlButtons(discord.ui.View):
 
         return False
 
-    def build_msg(self):
-        maze_string = ""
-
-        for row in self.maze: 
-            for col in row:
-                maze_string += map_emojis[col]
-            maze_string += '\n'
-
-
-        msg = f'```{maze_string}```'
-
-        return msg
-
-
-    
-    @discord.ui.button(label = "" , emoji = "🔐" , row = 0 , style = discord.ButtonStyle.gray , disabled=True)
-    async def _btn_disable(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        pass
-        
-
-
-    
-
-    @discord.ui.button(label = "" , emoji = "🔼" , row = 0 , style = discord.ButtonStyle.blurple)
-    async def _btn_up(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        if self.boundary_check("U"):
-            await interaction.response.send_message("out of maze" , ephemeral=True)
-            return 
-
-        
-        result = self.handle_movement("U")
-        if result == True:
-            await interaction.message.edit(content = "YOU WON" , view = None)
-            return 
-        
-
-
-        msg = self.build_msg()
-
-
-        await interaction.response.defer()
-        await interaction.message.edit(content = msg , view = self)
-
-
-
-
-
-
-    @discord.ui.button(label = "" , emoji = "🔐" , row = 0 , style = discord.ButtonStyle.gray , disabled=True)
-    async def _btn_disable_2(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        pass
-
-
-    
-    
-
-
-    
-    @discord.ui.button(label = "" , emoji = "⬅️" , row = 1 , style = discord.ButtonStyle.blurple)
-    async def _btn_left(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        if self.boundary_check("L"):
-            await interaction.response.send_message("out of maze" , ephemeral=True)
-            return 
-
-        
-        result = self.handle_movement("L")
-        if result == True:
-            await interaction.message.edit(content = "YOU WON" , view = None)
-            return
-
-        msg = self.build_msg()
-
-
-        await interaction.response.defer()
-        await interaction.message.edit(content = msg , view = self)
-
-    @discord.ui.button(label = "" , emoji = "🔐" , row = 1 , style = discord.ButtonStyle.gray , disabled=True)
-    async def _btn_disable_3(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        pass
-
-
-    @discord.ui.button(label = "" , emoji = "➡️" , row = 1 , style = discord.ButtonStyle.blurple)
-    async def _btn_right(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        if self.boundary_check("R"):
-            await interaction.response.send_message("out of maze" , ephemeral=True)
-            return 
-
-        
-        result = self.handle_movement("R")
-        if result == True:
-            await interaction.message.edit(content = "YOU WON" , view = None)
-            return
-
-        msg = self.build_msg()
-
-        await interaction.response.defer()
-
-        await interaction.message.edit(content = msg , view = self)
-
-
-
-
-
-    
-    @discord.ui.button(label = "" , emoji = "🔐" , row = 2 , style = discord.ButtonStyle.gray , disabled=True)
-    async def _btn_disable_4(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        pass
-        
-
-
-    
-
-    @discord.ui.button(label = "" , emoji = "🔽" , row = 2 , style = discord.ButtonStyle.blurple)
-    async def _btn_down(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        if self.boundary_check("D"):
-            await interaction.response.send_message("out of maze" , ephemeral=True)
-            return 
-
-        
-        result = self.handle_movement("D")
-        if result == True:
-            await interaction.message.edit(content = "YOU WON" , view = None)
-            return
-
-        msg = self.build_msg()
-
-
-        await interaction.response.defer()
-        await interaction.message.edit(content = msg , view = self)
-
-
-
-    @discord.ui.button(label = "" , emoji = "🔐" , row = 2 , style = discord.ButtonStyle.gray , disabled=True)
-    async def _btn_disable_5(self , interaction : discord.Interaction , button : discord.ui.Button) -> None:
-        pass
-
-
-    
 
 
 
@@ -252,7 +179,7 @@ async def _play(interaction : discord.Interaction , level : app_commands.Range[i
             maze_string += map_emojis[col]
         maze_string += '\n'
 
-    view = ControlButtons(interaction.user , data[f"level{level}"]["maze"] , level)
+    view = ControlButtons(interaction.user , data[f"level{level}"]["maze"])
 
     await interaction.response.send_message(f"```{maze_string}```" , view = view)
 
