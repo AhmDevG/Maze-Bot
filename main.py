@@ -1,6 +1,7 @@
 import discord
 import random
 import os
+import time
 from typing import Optional , Union
 from discord import app_commands , Emoji , PartialEmoji
 import json
@@ -59,7 +60,10 @@ class ControlButton(discord.ui.Button):
         
         result = view.handle_movement(self.direction)
         if result == True:
-            await interaction.message.edit(content = "YOU WON" , view = None)
+            end_time = time.time()
+            start_time = view.current_time
+            diff = end_time - start_time
+            await interaction.message.edit(content = f"YOU WON!\nYou took :\n{view.format_time(diff)}" , view = None)
             return 
         
 
@@ -108,6 +112,7 @@ class ControlButtons(discord.ui.View):
            ControlButton(emoji="🔽",row=2,direction="D"),
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
         ]
+        self.current_time = time.time()
 
         for button in self.buttons:
             self.add_item(button)
@@ -119,6 +124,22 @@ class ControlButtons(discord.ui.View):
             return False  
         return True  
 
+    def format_time(self , seconds):
+        units = [
+                ("year", 60 * 60 * 24 * 365),
+                ("month", 60 * 60 * 24 * 30),
+                ("day", 60 * 60 * 24),
+                ("hour", 60 * 60),
+                ("minute", 60),
+                ("second", 1),
+                ]
+        result = []
+        for name, count in units:
+            value = seconds // count
+            if value:
+                result.append(f"{value} {name}{'s' if value > 1 else ''}")
+            seconds %= count
+        return ", ".join(result) if result else "0 seconds"
 
     def build_msg(self):
         maze_string = ""
