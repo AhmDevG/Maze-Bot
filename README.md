@@ -3,9 +3,11 @@
     - /play [level : Optional[str]]
         - start a game
         - if no level it will take random level from maze file
+        
     - /points [user : Optional[discord.User]]
         - show your points
         - if no user it will be the author
+        
     - /leaderboard
         - show the top 10 users
 
