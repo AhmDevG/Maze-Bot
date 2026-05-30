@@ -100,7 +100,7 @@ class ControlButton(discord.ui.Button):
 
             update_points(interaction.user.id , point_inc)
 
-            await interaction.message.edit(content = f"YOU WON!\nYou took :\n{view.format_time(diff)}\nYou Gained +{point_inc}" , view = None)
+            await interaction.message.edit(content = f"YOU WON!\nYou took :\n{view.format_time(diff)}\nYou Gained +{int(point_inc)}" , view = None)
             return 
         
 
@@ -307,7 +307,7 @@ class ControlButtons(discord.ui.View):
         update_points(interaction.user.id , int(point_inc/2))
 
         await interaction.response.defer()
-        await interaction.message.edit(content = f"Solver :\n{msg}\nYou Gained +{point_inc//2}",  view = self)
+        await interaction.message.edit(content = f"Solver :\n{msg}\nYou Gained +{int(point_inc//2)}",  view = self)
 
 
     @discord.ui.button(label = "Step Mode" , style = discord.ButtonStyle.success , row = 3)
