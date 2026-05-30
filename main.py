@@ -92,6 +92,11 @@ class ControlButtons(discord.ui.View):
         self.r = 1
         self.c = 1
 
+        self.display = [
+            [map_emojis[cell] for cell in row] 
+            for row in maze
+        ]
+
         self.maze = maze
         self.author = author
         self.visited = [[False] * len(maze[0]) for _ in range(len(maze))]
@@ -142,18 +147,7 @@ class ControlButtons(discord.ui.View):
         return ", ".join(result) if result else "0 seconds"
 
     def build_msg(self):
-        maze_string = ""
-
-        for row in self.maze: 
-            for col in row:
-                maze_string += map_emojis[col]
-            maze_string += '\n'
-
-
-        msg = f'```{maze_string}```'
-
-        return msg
-
+        return "```" + "\n".join("".join(row) for row in self.display) + "```"
 
     def boundary_check(self , direction : str):
         row_size = len(self.maze)
@@ -178,6 +172,7 @@ class ControlButtons(discord.ui.View):
             return True 
             
         self.maze[self.r][self.c] , self.maze[new_r][new_c] =  self.maze[new_r][new_c] , self.maze[self.r][self.c] 
+        self.display[self.r][self.c] , self.display[new_r][new_c] =  self.display[new_r][new_c] , self.display[self.r][self.c] 
 
 
         self.r = new_r
@@ -243,6 +238,7 @@ class ControlButtons(discord.ui.View):
 
             
             self.maze[new_r][new_c] = "PT"
+            self.display[new_r][new_c] = map_emojis["PT"]
 
             
             self.r = new_r
