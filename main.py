@@ -13,6 +13,7 @@ load_dotenv()
 
 client = commands.Bot(command_prefix="!" , intents = discord.Intents.all())
 tree = client.tree
+STEP_MODE_NUMBER = 2
 
 TOKEN = os.getenv("TOKEN")
 
@@ -52,8 +53,8 @@ class ControlButton(discord.ui.Button):
         self.direction = direction
 
     async def callback(self , interaction : discord.Interaction ):
-        view = self.view
-        if view.boundary_check(self.direction):
+        view : ControlButtons = self.view
+        if not view.boundary_check(self.direction):
             await interaction.response.send_message("out of maze" , ephemeral=True)
             return 
 
@@ -69,10 +70,11 @@ class ControlButton(discord.ui.Button):
 
 
         msg = view.build_msg()
+        step_mode_str = 'ON' if view.step_mode_status else 'OFF'
 
 
         await interaction.response.defer()
-        await interaction.message.edit(content = msg , view = view)
+        await interaction.message.edit(content = f"Step Mode : {step_mode_str}\n{msg}", view = view)
     
 
 
@@ -91,6 +93,7 @@ class ControlButtons(discord.ui.View):
         }
         self.r = 1
         self.c = 1
+        self.step_mode_status = False
 
         self.display = [
             [map_emojis[cell] for cell in row] 
@@ -103,19 +106,19 @@ class ControlButtons(discord.ui.View):
 
         self.buttons = [
            
-           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction=""),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction="" ),
            ControlButton(emoji="🔼",row=0,direction="U"),
-           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction=""),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction="" ),
 
            
            ControlButton(emoji="🔼",row=1,direction="L"),
-           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=1,direction=""),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=1,direction="" ),
            ControlButton(emoji="▶",row=1,direction="R"),
 
            
-           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction="" ),
            ControlButton(emoji="🔽",row=2,direction="D"),
-           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction=""),
+           ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=2,direction="" ),
         ]
         self.current_time = time.time()
 
@@ -149,24 +152,35 @@ class ControlButtons(discord.ui.View):
     def build_msg(self):
         return "```" + "\n".join("".join(row) for row in self.display) + "```"
 
-    def boundary_check(self , direction : str):
-        row_size = len(self.maze)
-        col_size = len(self.maze[0])
-
+    def boundary_check(self, direction: str):
         dr, dc = self.steps[direction]
-        new_r = self.r + dr
-        new_c = self.c + dc
 
-        if new_r < 0 or new_c < 0 or new_c >= col_size or new_r >= row_size or self.maze[new_r][new_c] == "1":
-            return True
+        step = STEP_MODE_NUMBER if self.step_mode_status else 1
 
-                
-        return False        
+        for i in range(1, step + 1):
+            r = self.r + dr * i
+            c = self.c + dc * i
+
+            if (
+                    r < 0 or c < 0 or
+                    r >= len(self.maze) or c >= len(self.maze[0]) or
+                    self.maze[r][c] == "1"
+                    ):
+                return False
+
+        return True
 
     def handle_movement(self , direction : str) -> bool:
+        if not self.boundary_check(direction) : 
+            return False
+
+        
         dr, dc = self.steps[direction]
-        new_r = self.r + dr
-        new_c = self.c + dc
+
+        step = STEP_MODE_NUMBER if self.step_mode_status else 1
+
+        new_r = self.r + dr * step  
+        new_c = self.c + dc * step
 
         if self.maze[new_r][new_c] == "E":
             return True 
@@ -216,7 +230,7 @@ class ControlButtons(discord.ui.View):
 
         return None 
 
-    @discord.ui.button(label = "solve" , style = discord.ButtonStyle.red , row = 3)
+    @discord.ui.button(label = "Solve" , style = discord.ButtonStyle.red , row = 3)
     async def _solve(self , interaction : discord.Interaction  , button : discord.ui.Button):
         for btn in self.children :
             if not btn.disabled:
@@ -250,6 +264,16 @@ class ControlButtons(discord.ui.View):
         await interaction.message.edit(content = f"Solver :\n{msg}",  view = self)
 
 
+    @discord.ui.button(label = "Step Mode" , style = discord.ButtonStyle.success , row = 3)
+    async def _step(self , interaction : discord.Interaction  , button : discord.ui.Button):
+        self.step_mode_status = not self.step_mode_status 
+
+        msg = self.build_msg()
+        step_mode_str = 'ON' if self.step_mode_status else 'OFF'
+
+        await interaction.response.defer()
+        await interaction.message.edit(content = f"Step Mode : {step_mode_str}\n{msg}", view = self)
+
 
 
 
@@ -270,7 +294,7 @@ async def _play(interaction : discord.Interaction , level : app_commands.Range[i
 
     view = ControlButtons(interaction.user , data[f"level{level}"]["maze"])
 
-    await interaction.response.send_message(f"```{maze_string}```" , view = view)
+    await interaction.response.send_message(f"Step Mode : OFF\n```{maze_string}```" , view = view)
 
 
 client.run(TOKEN)
