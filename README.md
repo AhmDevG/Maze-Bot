@@ -35,4 +35,10 @@
       Slash command value validation
     </td>
   </tr>
+  <tr>
+    <td align="center">
+    <img width="800" src="https://github.com/user-attachments/assets/94788b2f-b858-42c2-a06f-61f0e3b492e1" /><br>
+      NEW !! Step Mode
+    </td>
+  </tr>
 </table>
