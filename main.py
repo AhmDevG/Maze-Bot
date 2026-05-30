@@ -1,4 +1,5 @@
 import discord
+import copy
 import random
 import os
 import time
@@ -16,6 +17,7 @@ tree = client.tree
 STEP_MODE_NUMBER = 2
 
 TOKEN = os.getenv("TOKEN")
+POINT_FOREACH_LEVEL = 100
 
 if not TOKEN : 
     print("Please set the .env file with token")
@@ -26,7 +28,7 @@ map_emojis = {
     "0" : "⬛" ,
     "P" : "🤓" ,
     "E" : "🥩" ,
-    "PT" : "🔴"
+    "PT" : "🍏"
 }
 
 
@@ -44,6 +46,32 @@ def get_data() :
 
     return data
 
+def get_user_points(user_id : int) : 
+    with open("./users.json" , "r" , encoding='utf-8') as f:
+        data = json.load(f)
+
+
+    if str(user_id) in data:
+        return data[str(user_id)]["points"] 
+    else:
+        with open("./users.json" , "w" , encoding='utf-8') as f:
+            data[str(user_id)] = {"points" : 0}
+            json.dump(data , f  , indent = 4)
+
+        return 0
+
+def update_points(user_id : int , points_inc : int):
+    user_points = get_user_points(user_id)
+
+    with open("./users.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    data[str(user_id)]["points"] = user_points + points_inc
+
+    with open("./users.json" , "w" , encoding='utf-8') as f:
+        json.dump(data , f  , indent = 4)
+
+    return data[str(user_id)]["points"]
 
 data = get_data()
 
@@ -64,7 +92,15 @@ class ControlButton(discord.ui.Button):
             end_time = time.time()
             start_time = view.current_time
             diff = end_time - start_time
-            await interaction.message.edit(content = f"YOU WON!\nYou took :\n{view.format_time(diff)}" , view = None)
+
+            point_inc = max(
+                0,
+                POINT_FOREACH_LEVEL - (diff // 10) * 5
+            )
+
+            update_points(interaction.user.id , point_inc)
+
+            await interaction.message.edit(content = f"YOU WON!\nYou took :\n{view.format_time(diff)}\nYou Gained +{point_inc}" , view = None)
             return 
         
 
@@ -111,7 +147,7 @@ class ControlButtons(discord.ui.View):
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=0,direction="" ),
 
            
-           ControlButton(emoji="🔼",row=1,direction="L"),
+           ControlButton(emoji="⬅️",row=1,direction="L"),
            ControlButton(style=discord.ButtonStyle.gray,disabled=True,emoji="🔐",row=1,direction="" ),
            ControlButton(emoji="▶",row=1,direction="R"),
 
@@ -145,7 +181,7 @@ class ControlButtons(discord.ui.View):
         for name, count in units:
             value = seconds // count
             if value:
-                result.append(f"{value} {name}{'s' if value > 1 else ''}")
+                result.append(f"{int(value)} {name}{'s' if value > 1 else ''}")
             seconds %= count
         return ", ".join(result) if result else "0 seconds"
 
@@ -259,9 +295,19 @@ class ControlButtons(discord.ui.View):
             self.c = new_c
 
         msg = self.build_msg()
+        end_time = time.time()
+        start_time = self.current_time
+
+        diff = end_time - start_time 
+        point_inc = max(
+            0,
+            POINT_FOREACH_LEVEL - (diff // 10) * 5
+        )
+
+        update_points(interaction.user.id , int(point_inc/2))
 
         await interaction.response.defer()
-        await interaction.message.edit(content = f"Solver :\n{msg}",  view = self)
+        await interaction.message.edit(content = f"Solver :\n{msg}\nYou Gained +{point_inc//2}",  view = self)
 
 
     @discord.ui.button(label = "Step Mode" , style = discord.ButtonStyle.success , row = 3)
@@ -281,7 +327,7 @@ class ControlButtons(discord.ui.View):
 @tree.command(name = "play" , description="play maze game")
 @app_commands.describe(level = "the level you wanna play we the level number increases the diffculty increases too if None select random")
 async def _play(interaction : discord.Interaction , level : app_commands.Range[int , 1 , len(data)] | None = None):
-    if not level :
+    if level is None:
         level = random.randrange(1 , len(data))
 
     maze_string = ""
@@ -292,9 +338,37 @@ async def _play(interaction : discord.Interaction , level : app_commands.Range[i
             maze_string += map_emojis[col]
         maze_string += '\n'
 
-    view = ControlButtons(interaction.user , data[f"level{level}"]["maze"])
+    view = ControlButtons(interaction.user , copy.deepcopy(data[f"level{level}"]["maze"]))
 
     await interaction.response.send_message(f"Step Mode : OFF\n```{maze_string}```" , view = view)
+
+
+@tree.command(name = "points" , description="get points of specific user")
+async def _points(interaction : discord.Interaction , user  : Optional[discord.User] = None):
+    user = user if user else interaction.user
+
+    user_points = get_user_points(user.id)
+
+    await interaction.response.send_message(f"{user.mention} Points : {user_points}")
+
+
+@tree.command(name = "leaderboard" , description="get top 10 users on maze bot game")
+async def _leaderboard(interaction : discord.Interaction):
+    with open("./users.json" , "r" , encoding = "utf-8")  as f :
+        data = json.load(f)
+
+    top_10 = sorted(data.items() , key = lambda item : item[1]["points"], reverse=True)[:10]
+    embed = discord.Embed(title="Leaderboard" , colour = discord.Colour.green())
+
+    for i , (user_id , points_dict) in enumerate(top_10 , start = 1) :
+        user = await client.fetch_user(user_id)
+        embed.add_field(name = f"{i}- {user.name} ({user.display_name})" , value = points_dict["points"] , inline= False)
+
+    embed.set_footer(text = f"requested by {interaction.user.name}" , icon_url=interaction.user.display_avatar.url)
+
+    await interaction.response.send_message(embed = embed)
+
+    
 
 
 client.run(TOKEN)
